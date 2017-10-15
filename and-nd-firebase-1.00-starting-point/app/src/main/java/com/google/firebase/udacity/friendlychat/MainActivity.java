@@ -30,6 +30,8 @@ import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,12 +51,21 @@ public class MainActivity extends AppCompatActivity {
 
     private String mUsername;
 
+    private FirebaseDatabase mFirebaseDatabase;
+    private DatabaseReference mDatabaseReference;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         mUsername = ANONYMOUS;
+
+        // get access to firebase database
+        mFirebaseDatabase = FirebaseDatabase.getInstance();
+        // get access to the specific part of the database
+        // get reference to the root node : mFirebaseDatabase.getReference()
+        mDatabaseReference = mFirebaseDatabase.getReference().child("messages");
 
         // Initialize references to views
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
@@ -80,6 +91,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // Enable Send button when there's text to send
+        //------------TextWatcher prevents to send empty message -----------------//
         mMessageEditText.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
@@ -104,7 +116,15 @@ public class MainActivity extends AppCompatActivity {
         mSendButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                // TODO: Send messages on click
+              // create a message by getting the text of the edittext and setting the username
+                // set the photo url to null for now
+                FriendlyMessage friendlyMessage =
+                    new FriendlyMessage(mMessageEditText.getText().toString(), mUsername, null);
+
+                // save this data in db
+                // create unique id for message using 'push'
+                // set the value of this id to friendlyMessage
+                mDatabaseReference.push().setValue(friendlyMessage);
 
                 // Clear input box
                 mMessageEditText.setText("");
