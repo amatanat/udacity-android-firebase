@@ -148,35 +148,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        mChildEventListener = new ChildEventListener() {
-            @Override
-            public void onChildAdded(DataSnapshot dataSnapshot, String s) {
-                //get data from the database
-                FriendlyMessage friendlyMessage = dataSnapshot.getValue(FriendlyMessage.class);
-                // add data to the adapter
-                mMessageAdapter.add(friendlyMessage);
-            }
-
-            @Override
-            public void onChildChanged(DataSnapshot dataSnapshot, String s) {
-            }
-
-            @Override
-            public void onChildRemoved(DataSnapshot dataSnapshot) {
-            }
-
-            @Override
-            public void onChildMoved(DataSnapshot dataSnapshot, String s) {
-            }
-
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-            }
-        };
-        // add child event listener to the 'message' node of the database
-        // in case of change in message children it will call the listener
-        mDatabaseReference.addChildEventListener(mChildEventListener);
-
         mAuthStateListener = new FirebaseAuth.AuthStateListener(){
 
             @Override
@@ -185,7 +156,9 @@ public class MainActivity extends AppCompatActivity {
                 if (firebaseUser != null){
                     // signed in
                     Toast.makeText(MainActivity.this, "Yeay, signed in", Toast.LENGTH_SHORT).show();
+                    onSignedInSetup(firebaseUser.getDisplayName());
                 }else{
+                    onSignedOutCleanUp();
                     // signed out
                     startActivityForResult(
                         AuthUI.getInstance()
@@ -223,6 +196,63 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        mFirebaseAuth.removeAuthStateListener(mAuthStateListener);
+        if (mAuthStateListener != null)
+            mFirebaseAuth.removeAuthStateListener(mAuthStateListener);
+        detachDatabaseReadListener();
+        mMessageAdapter.clear();
+    }
+
+    private void onSignedInSetup(String username){
+        mUsername = username;
+        attachDatabaseReadListener();
+    }
+
+    private void onSignedOutCleanUp(){
+        mUsername = ANONYMOUS;
+        // clear adapter to prevent duplicate messages after login - logout multiple times
+        mMessageAdapter.clear();
+        // remove listener
+        detachDatabaseReadListener();
+
+    }
+    private void attachDatabaseReadListener() {
+        if (mChildEventListener == null) {
+            mChildEventListener = new ChildEventListener() {
+                @Override
+                public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                    //get data from the database
+                    FriendlyMessage friendlyMessage = dataSnapshot.getValue(FriendlyMessage.class);
+                    // add data to the adapter
+                    mMessageAdapter.add(friendlyMessage);
+                }
+
+                @Override
+                public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+                }
+
+                @Override
+                public void onChildRemoved(DataSnapshot dataSnapshot) {
+                }
+
+                @Override
+                public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+                }
+            };
+            // add child event listener to the 'message' node of the database
+            // in case of change in message children it will call the listener
+            mDatabaseReference.addChildEventListener(mChildEventListener);
+        }
+    }
+
+    private void detachDatabaseReadListener(){
+        if (mChildEventListener != null){
+            mDatabaseReference.removeEventListener(mChildEventListener);
+            mChildEventListener = null;
+        }
+
     }
 }
