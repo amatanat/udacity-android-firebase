@@ -16,6 +16,7 @@
 package com.google.firebase.udacity.friendlychat;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
@@ -34,6 +35,8 @@ import android.widget.ProgressBar;
 
 import android.widget.Toast;
 import com.firebase.ui.auth.AuthUI;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.ChildEventListener;
@@ -41,6 +44,11 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
+import com.google.firebase.storage.UploadTask.TaskSnapshot;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -68,6 +76,8 @@ public class MainActivity extends AppCompatActivity {
     private ChildEventListener mChildEventListener;
     private FirebaseAuth mFirebaseAuth;
     private FirebaseAuth.AuthStateListener mAuthStateListener;
+    private FirebaseStorage mFirebaStorage;
+    private StorageReference mStorageReference;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,9 +92,14 @@ public class MainActivity extends AppCompatActivity {
         // get access to firebase auth
         mFirebaseAuth = FirebaseAuth.getInstance();
 
+        // get access to firebase storage
+        mFirebaStorage = FirebaseStorage.getInstance();
+
         // get access to the specific part of the database
         // get reference to the root node : mFirebaseDatabase.getReference()
         mDatabaseReference = mFirebaseDatabase.getReference().child("messages");
+        // get reference to the corresponding folder in storage
+        mStorageReference = mFirebaStorage.getReference().child("chat_photos");
 
         // Initialize references to views
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
@@ -196,6 +211,41 @@ public class MainActivity extends AppCompatActivity {
             } else if (resultCode == RESULT_CANCELED){
                 Toast.makeText(MainActivity.this, "Signed in calcelled", Toast.LENGTH_SHORT).show();
                 finish();
+            } else if (requestCode == RC_PHOTO_PICKER && RESULT_OK == resultCode){
+
+                // get selected image uri
+                Uri selectedImageUri = data.getData();
+
+                StorageReference photoRef =
+                    mStorageReference.child(selectedImageUri.getLastPathSegment());
+
+                // upload file to Firebase Storage
+                UploadTask uploadTask  = photoRef.putFile(selectedImageUri);
+
+                // Register observers to listen for when the download is done or if it fails
+                uploadTask.addOnFailureListener(new OnFailureListener() {
+
+                    @Override
+                    public void onFailure(@NonNull Exception exception) {
+                        // Handle unsuccessful uploads
+                    }
+
+                }).addOnSuccessListener(new OnSuccessListener<TaskSnapshot>() {
+
+                    @Override
+                    public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+                        // taskSnapshot.getMetadata() contains file metadata such as size, content-type, and download URL.
+                        Uri downloadUrl = taskSnapshot.getDownloadUrl();
+
+                        // create message with the stored image
+                        FriendlyMessage friendlyMessage = new FriendlyMessage(null, mUsername, downloadUrl.toString());
+                        
+                        // save that message into db
+                        mDatabaseReference.push().setValue(friendlyMessage);
+
+                    }
+                });
+
             }
         }
     }
